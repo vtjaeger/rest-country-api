@@ -1,6 +1,7 @@
 package com.example.restcountries.controller;
 
 import com.example.restcountries.service.CountryService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,11 @@ public class CountryController {
     @GetMapping("/{name}")
     public ResponseEntity getByName(@PathVariable String name) {
         return countryService.getByName(name);
+    }
+
+    @GetMapping("/suffixes")
+    public ResponseEntity getAllDetails() throws JsonProcessingException {
+        return countryService.getCountriesSuffixes();
     }
 
 }

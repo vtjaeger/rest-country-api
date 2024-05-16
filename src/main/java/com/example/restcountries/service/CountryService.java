@@ -1,6 +1,8 @@
 package com.example.restcountries.service;
 
+import com.example.restcountries.dtos.CountryDDD;
 import com.example.restcountries.model.Country;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
@@ -20,23 +22,22 @@ import java.util.List;
 
 @Service
 public class CountryService {
-    private final String URL = "https://restcountries.com/v3.1/";
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final String BASE_URL = "https://restcountries.com/v3.1/";
+    private final ObjectMapper jsonMapper = new ObjectMapper();
 
     public ResponseEntity<List<String>> getAll() {
         RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.getForEntity(URL + "all", String.class);
+        ResponseEntity<String> apiResponse = restTemplate.getForEntity(BASE_URL + "all", String.class);
 
-        if (response.getBody() != null) {
+        if (apiResponse.getBody() != null) {
             try {
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode root = mapper.readTree(response.getBody());
+                JsonNode jsonResponse = jsonMapper.readTree(apiResponse.getBody());
                 List<String> countryNames = new ArrayList<>();
 
-                for (JsonNode node : root) {
-                    JsonNode nameNode = node.path("name").path("common");
-                    String name = nameNode.asText();
-                    countryNames.add(name);
+                for (JsonNode countryNode : jsonResponse) {
+                    JsonNode commonNameNode = countryNode.path("name").path("common");
+                    String commonName = commonNameNode.asText();
+                    countryNames.add(commonName);
                 }
 
                 return ResponseEntity.ok(countryNames);
@@ -49,27 +50,27 @@ public class CountryService {
         }
     }
 
-    public ResponseEntity getByName(String name) {
-        URI uri;
+    public ResponseEntity getByName(String countryName) {
+        URI apiUri;
         try {
-            uri = new URI(URL + "name/" + name);
+            apiUri = new URI(BASE_URL + "name/" + countryName);
         } catch (URISyntaxException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
 
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient httpClient = HttpClient.newHttpClient();
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(uri)
+        HttpRequest apiRequest = HttpRequest.newBuilder()
+                .uri(apiUri)
                 .GET()
                 .build();
 
         try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> apiResponse = httpClient.send(apiRequest, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() == 200) {
-                JsonNode rootNode = objectMapper.readTree(response.body());
-                JsonNode countryNode = rootNode.get(0);
+            if (apiResponse.statusCode() == 200) {
+                JsonNode jsonResponse = jsonMapper.readTree(apiResponse.body());
+                JsonNode countryNode = jsonResponse.get(0);
 
                 Country countryDto = new Country();
                 countryDto.setCommonName(countryNode.at("/name/common").asText());
@@ -82,10 +83,40 @@ public class CountryService {
 
                 return ResponseEntity.ok(countryDto);
             } else {
-                return ResponseEntity.status(response.statusCode()).body(response.body());
+                return ResponseEntity.status(apiResponse.statusCode()).body(apiResponse.body());
             }
         } catch (IOException | InterruptedException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
+
+    public ResponseEntity<List<CountryDDD>> getCountriesSuffixes() throws JsonProcessingException {
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<String> apiResponse = restTemplate.getForEntity(BASE_URL + "all", String.class);
+
+        if(apiResponse.getBody() == null) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }
+
+        JsonNode jsonResponse = jsonMapper.readTree(apiResponse.getBody());
+        List<CountryDDD> countrySuffixesList = new ArrayList<>();
+
+        for(JsonNode countryNode : jsonResponse) {
+            String countryName = countryNode.path("name").path("common").asText();
+            JsonNode iddNode = countryNode.path("idd").path("suffixes");
+
+            List<String> suffixes = new ArrayList<>();
+
+            if(iddNode.isArray()){
+                for(JsonNode suffix : iddNode){
+                    suffixes.add(suffix.asText());
+                }
+            }
+
+            CountryDDD countryDDD = new CountryDDD(countryName, suffixes);
+            countrySuffixesList.add(countryDDD);
+        }
+        return ResponseEntity.ok().body(countrySuffixesList);
+    }
+
 }
