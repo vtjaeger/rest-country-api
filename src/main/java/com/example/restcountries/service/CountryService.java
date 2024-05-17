@@ -1,6 +1,7 @@
 package com.example.restcountries.service;
 
 import com.example.restcountries.dtos.CountryDDD;
+import com.example.restcountries.dtos.MoneyInfoCountry;
 import com.example.restcountries.model.Country;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,9 +17,7 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class CountryService {
@@ -117,6 +116,53 @@ public class CountryService {
             countrySuffixesList.add(countryDDD);
         }
         return ResponseEntity.ok().body(countrySuffixesList);
+    }
+
+    public ResponseEntity<List<MoneyInfoCountry>> getMoneyInfos() throws JsonProcessingException {
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<String> apiResponse = restTemplate.getForEntity(BASE_URL + "all", String.class);
+
+        if (apiResponse.getBody() == null) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }
+
+        JsonNode jsonResponse = jsonMapper.readTree(apiResponse.getBody());
+        List<MoneyInfoCountry> moneyInfoCountries = new ArrayList<>();
+
+        for (JsonNode country : jsonResponse) {
+            String countryName = country.path("name").path("common").asText();
+
+            String capital = "";
+            if (country.path("capital").isArray() && country.path("capital").size() > 0) {
+                capital = country.path("capital").get(0).asText();
+            }
+
+            List<String> languages = new ArrayList<>();
+            country.path("languages").fields().forEachRemaining(entry -> languages.add(entry.getValue().asText()));
+
+            int population = country.path("population").asInt();
+
+            String moneyName = "";
+            String moneySymbol = "";
+            Iterator<Map.Entry<String, JsonNode>> currenciesIterator = country.path("currencies").fields();
+            if (currenciesIterator.hasNext()) {
+                Map.Entry<String, JsonNode> currency = currenciesIterator.next();
+                moneyName = currency.getValue().path("name").asText();
+                moneySymbol = currency.getValue().path("symbol").asText();
+            }
+
+            MoneyInfoCountry moneyInfoCountry = new MoneyInfoCountry(
+                    countryName,
+                    capital,
+                    languages,
+                    population,
+                    moneyName,
+                    moneySymbol
+            );
+            moneyInfoCountries.add(moneyInfoCountry);
+        }
+
+        return ResponseEntity.ok().body(moneyInfoCountries);
     }
 
 }

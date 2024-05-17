@@ -29,4 +29,9 @@ public class CountryController {
         return countryService.getCountriesSuffixes();
     }
 
+    @GetMapping("/money")
+    public ResponseEntity getInfoMoney() throws JsonProcessingException {
+        return countryService.getMoneyInfos();
+    }
+
 }
